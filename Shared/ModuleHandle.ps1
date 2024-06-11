@@ -1,7 +1,7 @@
 ﻿# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-function Request-M365Module {
+function Request-Module {
     [OutputType([bool])]
     param (
         [Parameter(Mandatory = $true)]
@@ -11,19 +11,22 @@ function Request-M365Module {
     )
 
     if ($MinModuleVersion) {
-        Write-Verbose "Checking $ModuleName Powershell Module is loaded with minimum version $MinModuleVersion"
-        $loaded = Test-M365Module -Loaded -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion
+        Write-Verbose "Checking $ModuleName PowerShell Module is loaded with minimum version $MinModuleVersion"
+        $loaded = Test-Module -Loaded -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion
         if (-not $loaded) {
-            $installed = Test-M365Module -Installed -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion
+            Write-Verbose "$ModuleName PowerShell module not loaded with minimum version $MinModuleVersion"
+            $installed = Test-Module -Installed -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion
             if (-not $installed) {
-                $installed = Install-M365Module -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion
+                Write-Verbose "$ModuleName PowerShell Module not installed with minimum version $MinModuleVersion"
+                $installed = Add-Module -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion
                 if (-not $installed) {
                     Write-Host "$ModuleName Powershell Module failed to install with minimum version $MinModuleVersion"
                     return $false
                 }
             }
-            Import-Module $ModuleName -MinModuleVersion $MinModuleVersion -ErrorAction SilentlyContinue -Force
-            $loaded = Test-M365Module -Loaded -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion
+            Write-Verbose "Importing $ModuleName PowerShell Module with minimum version $MinModuleVersion"
+            Import-Module $ModuleName -MinimumVersion  $MinModuleVersion -ErrorAction SilentlyContinue -Force
+            $loaded = Test-Module -Loaded -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion
             if (-not $loaded) {
                 Write-Host "$ModuleName Powershell Module import failed with minimum version $MinModuleVersion" -ForegroundColor Red
                 return $false
@@ -35,18 +38,21 @@ function Request-M365Module {
         return $true
     } else {
         Write-Verbose "Checking $ModuleName Powershell Module is loaded."
-        $loaded = Test-M365Module -Loaded -ModuleName $ModuleName
+        $loaded = Test-Module -Loaded -ModuleName $ModuleName
         if (-not $loaded) {
-            $installed = Test-M365Module -Installed -ModuleName $ModuleName
+            Write-Verbose "$ModuleName PowerShell module not loaded"
+            $installed = Test-Module -Installed -ModuleName $ModuleName
             if (-not $installed) {
-                $installed = Install-M365Module -ModuleName $ModuleName
+                Write-Verbose "$ModuleName PowerShell Module not installed"
+                $installed = Add-Module -ModuleName $ModuleName
                 if (-not $installed) {
                     Write-Host "$ModuleName Powershell Module failed to install."
                     return $false
                 }
             }
+            Write-Verbose "Importing $ModuleName PowerShell Module"
             Import-Module $ModuleName -ErrorAction SilentlyContinue -Force
-            $loaded = Test-M365Module -Loaded -ModuleName $ModuleName
+            $loaded = Test-Module -Loaded -ModuleName $ModuleName
             if (-not $loaded) {
                 Write-Host "$ModuleName Powershell Module import failed." -ForegroundColor Red
                 return $false
@@ -59,7 +65,7 @@ function Request-M365Module {
     }
 }
 
-function Test-M365Module {
+function Test-Module {
     [OutputType([bool])]
     param (
         [Parameter(Mandatory = $true, ParameterSetName = 'Installed')]
@@ -85,15 +91,16 @@ function Test-M365Module {
 
     if ($modules) {
         Write-Verbose "Detected $ModuleName"
-        $foundMinVersion = $false
         if ($MinModuleVersion) {
+            $foundMinVersion = $false
             foreach ($module in $modules) {
                 if (Test-ModuleVersion -MinModuleVersion $MinModuleVersion -ModuleVersion $module.Version) {
-                    Write-Verbose "$ModuleName Powershell Module with minimum version $MinModuleVersion': $($module.Version)"
+                    Write-Verbose "Powershell Module $ModuleName with minimum version $MinModuleVersion': $($module.Version)"
                     $foundMinVersion = $true
                 }
             }
             if ($foundMinVersion) {
+                Write-Verbose "Powershell Module $ModuleName with minimum version $MinModuleVersion Detected"
                 return $true
             } else {
                 Write-Host "$ModuleName Powershell Module do not reach minimum version: $MinModuleVersion" -ForegroundColor Red
@@ -106,29 +113,26 @@ function Test-M365Module {
     }
 }
 
-function Install-M365Module {
+function Add-Module {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     [OutputType([bool])]
     param (
         [Parameter(Mandatory = $true)]
         [string]$ModuleName,
         [Parameter(Mandatory = $false)]
-        [System.Version]$MinModuleVersion = $null#,
-        #[Parameter(Mandatory = $false)]
-        #[Switch]$Force
+        [System.Version]$MinModuleVersion = $null
     )
 
 
     if ($MinModuleVersion) {
         Write-Verbose "Testing $ModuleName with minimum version $minModuleVersion"
-        $testModule = (Test-M365Module -Installed -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion)
+        $testModule = (Test-Module -Installed -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion)
     } else {
         Write-Verbose "Testing $ModuleName"
-        $testModule = (Test-M365Module -Installed -ModuleName $ModuleName)
+        $testModule = (Test-Module -Installed -ModuleName $ModuleName)
     }
 
     if (-not $testModule) {
-
         if ($MinModuleVersion) {
             $message = "Do you want to install min version $MinModuleVersion?"
         } else {
@@ -146,10 +150,10 @@ function Install-M365Module {
             }
             if ($MinModuleVersion) {
                 Write-Verbose "Verifying installation $ModuleName with minimum version $minModuleVersion"
-                $testModule = (Test-M365Module -Installed -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion)
+                $testModule = (Test-Module -Installed -ModuleName $ModuleName -MinModuleVersion $MinModuleVersion)
             } else {
                 Write-Verbose "Verifying installation $ModuleName"
-                $testModule = (Test-M365Module -Installed -ModuleName $ModuleName)
+                $testModule = (Test-Module -Installed -ModuleName $ModuleName)
             }
             if ($testModule) {
                 Write-Verbose "$ModuleName Powershell Module installed"
@@ -173,6 +177,6 @@ function Test-ModuleVersion {
         [Parameter(Mandatory = $true)]
         [System.Version]$ModuleVersion
     )
-    return $ModuleVersion -lt $MinModuleVersion
+    return $ModuleVersion -ge $MinModuleVersion
 }
 

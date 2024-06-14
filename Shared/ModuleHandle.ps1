@@ -7,7 +7,9 @@ function Request-Module {
         [Parameter(Mandatory = $true)]
         [string]$ModuleName,
         [Parameter(Mandatory = $false)]
-        [System.Version]$MinModuleVersion = $null
+        [System.Version]$MinModuleVersion = $null,
+        [Parameter(Mandatory = $false)]
+        [switch]$Force
     )
 
     if ($MinModuleVersion) {
@@ -120,7 +122,9 @@ function Add-Module {
         [Parameter(Mandatory = $true)]
         [string]$ModuleName,
         [Parameter(Mandatory = $false)]
-        [System.Version]$MinModuleVersion = $null
+        [System.Version]$MinModuleVersion = $null,
+        [Parameter(Mandatory = $false)]
+        [switch]$Force
     )
 
 
@@ -139,8 +143,7 @@ function Add-Module {
             $message = "Do you want to install?"
         }
 
-        #if ($Force -or $PSCmdlet.ShouldContinue($message, "Module $ModuleName")) {
-        if ($PSCmdlet.ShouldContinue($message, "Module $ModuleName")) {
+        if ($Force -or $PSCmdlet.ShouldContinue($message, "Module $ModuleName")) {
             if ($MinModuleVersion) {
                 Write-Verbose "Installing $ModuleName with minimum version $minModuleVersion"
                 Install-Module -Name $ModuleName -Force -ErrorAction SilentlyContinue -Scope CurrentUser -MinimumVersion $MinModuleVersion

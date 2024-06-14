@@ -11,18 +11,11 @@ function Connect-GraphAdvanced {
         [Parameter(Mandatory = $true)]
         [string[]]$Modules,
         [Parameter(Mandatory = $false)]
-        [switch]$DoNotShowConnectionDetails
+        [switch]$DoNotShowConnectionDetails,
+        [Parameter(Mandatory = $false)]
+        [switch]$Force
     )
 
-<#     if ($PSVersionTable.PSVersion.Major -le 5 ) {
-        if ($MaximumFunctionCount -lt 7500) {
-            $MaximumFunctionCount += 7500
-        }
-        if ($MaximumVariableCount -lt 7500) {
-            $MaximumVariableCount += 7500
-        }
-    }
- #>
     #Validate Graph is installed and loaded
     $module = $false
     foreach ($module in $Modules) {
@@ -38,7 +31,7 @@ function Connect-GraphAdvanced {
     $connection = Get-MgContext -ErrorAction SilentlyContinue
     if ($null -eq $connection) {
         Write-Host "Not connected to Graph" -ForegroundColor Yellow
-        if ($PSCmdlet.ShouldContinue("Do you want to connect?", "We need a Graph connection")) {
+        if ($Force -or $PSCmdlet.ShouldContinue("Do you want to connect?", "We need a Graph connection")) {
             Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction SilentlyContinue
             $connection = Get-MgContext -ErrorAction SilentlyContinue
             if ($null -eq $connection) {

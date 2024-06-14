@@ -11,7 +11,9 @@ function Connect-EXOAdvanced {
         [Parameter(Mandatory = $true, ParameterSetName = 'AllowMultipleSessions')]
         [switch]$AllowMultipleSessions,
         [Parameter(Mandatory = $true, ParameterSetName = 'AllowMultipleSessions')]
-        [string]$Prefix
+        [string]$Prefix,
+        [Parameter(Mandatory = $false)]
+        [switch]$Force
     )
 
     #Validate EXO 3.0 is installed and loaded
@@ -28,7 +30,7 @@ function Connect-EXOAdvanced {
     $connections = Get-ConnectionInformation -ErrorAction SilentlyContinue
     if ($null -eq $connections) {
         Write-Host "Not connected to Exchange Online" -ForegroundColor Yellow
-        if ($PSCmdlet.ShouldContinue("Do you want to connect?", "No connection found. We need a ExchangeOnlineManagement connection")) {
+        if ($Force -or $PSCmdlet.ShouldContinue("Do you want to connect?", "No connection found. We need a ExchangeOnlineManagement connection")) {
             if ($AllowMultipleSessions) {
                 Connect-ExchangeOnline -ShowBanner:$false -ErrorAction SilentlyContinue -Prefix $Prefix
             } else {
@@ -56,7 +58,7 @@ function Connect-EXOAdvanced {
                     Show-EXOConnection -Connection $connection
                 }
             }
-            if ($PSCmdlet.ShouldContinue("Do you want another connection?", "You have Exchange Online sessions")) {
+            if ($Force -or $PSCmdlet.ShouldContinue("Do you want another connection?", "You have Exchange Online sessions")) {
                 Connect-ExchangeOnline -ShowBanner:$false -ErrorAction SilentlyContinue -Prefix $Prefix
                 $newconnections = Get-ConnectionInformation -ErrorAction SilentlyContinue
                 $newSession = $null

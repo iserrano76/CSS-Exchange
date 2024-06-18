@@ -4,26 +4,21 @@
 . $PSScriptRoot\..\ModuleHandle.ps1
 
 function Connect-GraphAdvanced {
-    #[CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     param (
         [Parameter(Mandatory = $true)]
         [string[]]$Scopes,
         [Parameter(Mandatory = $true)]
         [string[]]$Modules,
         [Parameter(Mandatory = $false)]
-        [switch]$DoNotShowConnectionDetails,
-        [Parameter(Mandatory = $false)]
-        [switch]$Force
+        [switch]$DoNotShowConnectionDetails
     )
 
     #Validate Graph is installed and loaded
-    $module = $false
-    foreach ($module in $Modules) {
-        $module = Request-Module -ModuleName $module
-        if (-not $module) {
-            Write-Host "We cannot continue without Microsoft.Graph Powershell module" -ForegroundColor Red
-            return $null
-        }
+    $requestModule = $false
+    $requestModule = Request-Module -Modules $Modules
+    if (-not $requestModule) {
+        Write-Host "We cannot continue without $Modules Powershell module" -ForegroundColor Red
+        return $null
     }
 
     #Validate Graph is connected or try to connect
@@ -31,58 +26,68 @@ function Connect-GraphAdvanced {
     $connection = Get-MgContext -ErrorAction SilentlyContinue
     if ($null -eq $connection) {
         Write-Host "Not connected to Graph" -ForegroundColor Yellow
-        if ($Force -or $PSCmdlet.ShouldContinue("Do you want to connect?", "We need a Graph connection")) {
-            Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction SilentlyContinue
-            $connection = Get-MgContext -ErrorAction SilentlyContinue
-            if ($null -eq $connection) {
-                Write-Host "Connection could not be established" -ForegroundColor Red
-            } else {
-                if (Test-GraphContext -Scopes $connection.Scopes -ExpectedScopes $Scopes) {
-                    $connection.PSObject.Properties | ForEach-Object { Write-Verbose "$($_.Name): $($_.Value)" }
-                    if (-not $DoNotShowConnectionDetails) {
-                        Show-GraphContext -Context $connection
-                    }
-                    return $connection
-                } else {
-                    Write-Host "We cannot continue without Graph Powershell session non Expected Scopes found" -ForegroundColor Red
-                }
-            }
-        } else {
-            Write-Host "We cannot continue without Graph Powershell session" -ForegroundColor Red
-        }
-    } elseif ($connection.count -eq 1) {
-        Write-Verbose "You have a Graph sessions"
-        if (Test-GraphContext -Scopes $connection.Scopes -ExpectedScopes $Scopes) {
-            $connection.PSObject.Properties | ForEach-Object { Write-Verbose "$($_.Name): $($_.Value)" }
-            if (-not $DoNotShowConnectionDetails) {
-                Show-GraphContext -Context $connection
-            }
-            return $connection
-        } else {
-            Write-Host "We cannot continue without Graph Powershell session non Expected Scopes found" -ForegroundColor Red
-        }
+        $connection = Add-GraphConnection -Scopes $Scopes
     } else {
-        Write-Host "You have more than one Graph sessions please use just one session" -ForegroundColor Red
+        Write-Verbose "You have a Graph sessions"
+        Write-Verbose "Checking scopes"
+        if (-not (Test-GraphContext -Scopes $connection.Scopes -ExpectedScopes $Scopes)) {
+            Write-Host "Not connected to Graph with expected scopes" -ForegroundColor Yellow
+            $connection = Add-GraphConnection -Scopes $Scopes
+        }
     }
-    return $null
+    if ($null -ne $connection -and -not $DoNotShowConnectionDetails) {
+        $connection.PSObject.Properties | ForEach-Object { Write-Verbose "$($_.Name): $($_.Value)" }
+        Show-GraphContext -Context $connection
+    }
+    return $connection
+}
+
+function Add-GraphConnection {
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string[]]$Scopes
+    )
+
+    if ($PSCmdlet.ShouldProcess("Do you want to connect?", "We need a Graph connection with scopes $Scopes")) {
+        Write-Verbose "Connecting to Microsoft Graph API using scopes $Scopes"
+        Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction SilentlyContinue
+        $connection = $null
+        $connection = Get-MgContext -ErrorAction SilentlyContinue
+        Write-Verbose "Checking scopes"
+        if (-not $connection) {
+            Write-Host "We cannot continue without Graph Powershell session" -ForegroundColor Red
+            return $null
+        }
+        if (-not (Test-GraphContext -Scopes $connection.Scopes -ExpectedScopes $Scopes)) {
+            Write-Host "We cannot continue without Graph Powershell session without Expected Scopes" -ForegroundColor Red
+            return $null
+        }
+        return $connection
+    }
 }
 
 function Test-GraphContext {
     [OutputType([bool])]
     param (
         [Parameter(Mandatory = $true)]
-        [string[]]$Scopes,
+        [string[]]$ExpectedScopes,
         [Parameter(Mandatory = $true)]
-        [string[]]$ValidScopes
+        [string[]]$Scopes
     )
 
-    $missingScopes = Compare-Object -ReferenceObject $ExpectedScopes -DifferenceObject $Scopes
+    $foundError = $false
+    foreach ($expectedScope in $ExpectedScopes) {
+        if ($Scopes -notcontains $expectedScope) {
+            Write-Host "The following scope is missing: $expectedScope" -ForegroundColor Red
+            $foundError = $true
+        }
+    }
 
-    if ($missingScopes) {
-        Write-Host "The following scopes are missing: $($missingScopes | ForEach-Object { $_.InputObject })" -ForegroundColor Red
+    if ($foundError) {
         return $false
     } else {
-        Write-Verbose "All expected scopes are present." -ForegroundColor Green
+        Write-Verbose "All expected scopes are present."
         return $true
     }
 }
@@ -92,8 +97,8 @@ function Show-GraphContext {
         [Parameter(Mandatory = $true)]
         [Microsoft.Graph.PowerShell.Authentication.AuthContext]$Context
     )
-    Write-Host "Connected to Graph"
+    Write-Host "`nConnected to Graph"
     Write-Host "Session details"
     Write-Host "Tenant Id: $($Context.TenantId)"
-    Write-Host "User: $($Context.Account)"
+    Write-Host "Account: $($Context.Account)"
 }

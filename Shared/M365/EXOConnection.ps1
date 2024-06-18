@@ -4,6 +4,7 @@
 . $PSScriptRoot\..\ModuleHandle.ps1
 
 function Connect-EXOAdvanced {
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
     param (
         [Parameter(Mandatory = $false, ParameterSetName = 'SingleSession')]
         [Parameter(Mandatory = $false, ParameterSetName = 'AllowMultipleSessions')]
@@ -11,83 +12,56 @@ function Connect-EXOAdvanced {
         [Parameter(Mandatory = $true, ParameterSetName = 'AllowMultipleSessions')]
         [switch]$AllowMultipleSessions,
         [Parameter(Mandatory = $true, ParameterSetName = 'AllowMultipleSessions')]
-        [string]$Prefix,
-        [Parameter(Mandatory = $false)]
-        [switch]$Force
+        [string]$Prefix = $null
     )
 
     #Validate EXO 3.0 is installed and loaded
-    $module = $false
-    $module = Request-Module -ModuleName "ExchangeOnlineManagement" -MinModuleVersion 3.0.0
+    $requestModule = $false
+    $requestModule = Request-Module -Modules "ExchangeOnlineManagement" -MinModuleVersion 3.0.0
 
-    if (-not $module) {
+    if (-not $requestModule) {
         Write-Host "We cannot continue without ExchangeOnlineManagement Powershell module" -ForegroundColor Red
         return $null
     }
 
     #Validate EXO is connected or try to connect
     $connections = $null
-    $connections = Get-ConnectionInformation -ErrorAction SilentlyContinue
-    if ($null -eq $connections) {
-        Write-Host "Not connected to Exchange Online" -ForegroundColor Yellow
-        if ($Force -or $PSCmdlet.ShouldContinue("Do you want to connect?", "No connection found. We need a ExchangeOnlineManagement connection")) {
-            if ($AllowMultipleSessions) {
-                Connect-ExchangeOnline -ShowBanner:$false -ErrorAction SilentlyContinue -Prefix $Prefix
-            } else {
-                Connect-ExchangeOnline -ShowBanner:$false -ErrorAction SilentlyContinue
-            }
-            $connection = Get-ConnectionInformation -ErrorAction SilentlyContinue
-            if ($null -eq $connection) {
-                Write-Host "Connection could not be established" -ForegroundColor Red
-            } else {
-                $connection.PSObject.Properties | ForEach-Object { Write-Verbose "$($_.Name): $($_.Value)" }
-                if (-not $DoNotShowConnectionDetails) {
-                    Show-EXOConnection -Connection $connection
-                }
-                return $connection
-            }
-        }
-        Write-Host "We cannot continue without ExchangeOnlineManagement Powershell session" -ForegroundColor Red
-    } else {
-        if ($AllowMultipleSessions) {
-            Write-Verbose "Found Exchange Online sessions"
-            foreach ($connection in $connections) {
-                Write-Verbose " "
-                $connection.PSObject.Properties | ForEach-Object { Write-Verbose "$($_.Name): $($_.Value)" }
-                if (-not $DoNotShowConnectionDetails) {
-                    Show-EXOConnection -Connection $connection
-                }
-            }
-            if ($Force -or $PSCmdlet.ShouldContinue("Do you want another connection?", "You have Exchange Online sessions")) {
+    $newconnection = $null
+    $connections = Get-ConnectionInformation -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Connected' }
+
+    if ($null -eq $connections -or $AllowMultipleSessions) {
+        if ($connections.ModulePrefix -contains $Prefix) {
+            Write-Host "You already have a session with the prefix $Prefix" -ForegroundColor Red
+            return $null
+        } else {
+            Write-Host "Not connected to Exchange Online" -ForegroundColor Yellow -NoNewline
+            if ($Prefix) { Write-Host "with Prefix $Prefix" }
+            if ($PSCmdlet.ShouldProcess("Do you want to add it?", "Adding an Exchange Online Session")) {
+                Write-Verbose "Connecting to Exchange Online session"
                 Connect-ExchangeOnline -ShowBanner:$false -ErrorAction SilentlyContinue -Prefix $Prefix
                 $newconnections = Get-ConnectionInformation -ErrorAction SilentlyContinue
-                $newSession = $null
-                $newSession = $newconnections | Where-Object { $_ -notin $connections }
-                if ($null -eq $newSession) {
-                    Write-Host "Connection could not be established" -ForegroundColor Red
-                } else {
-                    $connection.PSObject.Properties | ForEach-Object { Write-Verbose "$($_.Name): $($_.Value)" }
-                    if (-not $DoNotShowConnectionDetails) {
-                        Show-EXOConnection -Connection $newSession
+                foreach ($testconnection in $newconnections) {
+                    if ($connections -notcontains $testconnection) {
+                        $newconnection = $testconnection
                     }
-                    return $newSession
                 }
-            }
-        } else {
-            if ($connections.count -eq 1) {
-                Write-Verbose "You have a Exchange Online session"
-                Write-Verbose " "
-                $connection.PSObject.Properties | ForEach-Object { Write-Verbose "$($_.Name): $($_.Value)" }
-                if (-not $DoNotShowConnectionDetails) {
-                    Show-EXOConnection -Connection $connections
-                }
-                return $connections
-            } else {
-                Write-Host "You have more than one Exchange Online sessions please use just one session" -ForegroundColor Red
             }
         }
+    } else {
+        Write-Verbose "You already have an Exchange Online session"
+        if ($connections.count -gt 1) {
+            Write-Host "You have more than one Exchange Online sessions please use just one session. You are not using AllowMultipleSessions" -ForegroundColor Red
+            return $null
+        }
+        $newconnection = $connections
     }
-    return $null
+
+    Write-Verbose "Connected session to Exchange Online"
+    $newconnection.PSObject.Properties | ForEach-Object { Write-Verbose "$($_.Name): $($_.Value)" }
+    if (-not $DoNotShowConnectionDetails) {
+        Show-EXOConnection -Connection $newconnection
+    }
+    return $newconnection
 }
 
 function Show-EXOConnection {
@@ -95,8 +69,11 @@ function Show-EXOConnection {
         [Parameter(Mandatory = $true)]
         [Microsoft.Exchange.Management.ExoPowershellSnapin.ConnectionInformation]$Connection
     )
-    Write-Host "Connected to Exchange Online"
+    Write-Host "`nConnected to Exchange Online"
     Write-Host "Session details"
     Write-Host "Tenant Id: $($Connection.TenantId)"
     Write-Host "User: $($Connection.UserPrincipalName)"
+    if ($($Connection.ModulePrefix)) {
+        Write-Host "Prefix: $($Connection.ModulePrefix)"
+    }
 }

@@ -26,7 +26,7 @@ function Connect-EXOAdvanced {
 
     #Validate EXO is connected or try to connect
     $connections = $null
-    $newconnection = $null
+    $newConnection = $null
     $connections = Get-ConnectionInformation -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Connected' }
 
     if ($null -eq $connections -or $AllowMultipleSessions) {
@@ -39,10 +39,10 @@ function Connect-EXOAdvanced {
             if ($PSCmdlet.ShouldProcess("Do you want to add it?", "Adding an Exchange Online Session")) {
                 Write-Verbose "Connecting to Exchange Online session"
                 Connect-ExchangeOnline -ShowBanner:$false -ErrorAction SilentlyContinue -Prefix $Prefix
-                $newconnections = Get-ConnectionInformation -ErrorAction SilentlyContinue
-                foreach ($testconnection in $newconnections) {
-                    if ($connections -notcontains $testconnection) {
-                        $newconnection = $testconnection
+                $newConnections = Get-ConnectionInformation -ErrorAction SilentlyContinue
+                foreach ($testConnection in $newConnections) {
+                    if ($connections -notcontains $testConnection) {
+                        $newConnection = $testConnection
                     }
                 }
             }
@@ -53,15 +53,15 @@ function Connect-EXOAdvanced {
             Write-Host "You have more than one Exchange Online sessions please use just one session. You are not using AllowMultipleSessions" -ForegroundColor Red
             return $null
         }
-        $newconnection = $connections
+        $newConnection = $connections
     }
 
     Write-Verbose "Connected session to Exchange Online"
-    $newconnection.PSObject.Properties | ForEach-Object { Write-Verbose "$($_.Name): $($_.Value)" }
+    $newConnection.PSObject.Properties | ForEach-Object { Write-Verbose "$($_.Name): $($_.Value)" }
     if (-not $DoNotShowConnectionDetails) {
-        Show-EXOConnection -Connection $newconnection
+        Show-EXOConnection -Connection $newConnection
     }
-    return $newconnection
+    return $newConnection
 }
 
 function Show-EXOConnection {

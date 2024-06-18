@@ -439,7 +439,7 @@ begin {
 process {
     if (-not $SkipConnectionCheck) {
 
-        #it will be better to use only graph in case it is need it not for AppliedTenant, but an issue do problems if we create before EXO conenction:
+        #it will be better to use only graph in case it is need it not for AppliedTenant, but an issue do problems if we create before EXO connection:
         #https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/2227
 
         #Validate Graph is connected

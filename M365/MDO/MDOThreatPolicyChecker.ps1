@@ -11,7 +11,7 @@
 Evaluates user coverage and potential redundancies in Microsoft Defender for Office 365 and Exchange Online Protection threat policies, including anti-malware, anti-phishing, and anti-spam policies, as well as Safe Attachments and Safe Links policies if licensed.
 
 .DESCRIPTION
-This script checks which Microsoft Defender for Office 365 and Exchange Online Protection threat policies cover a particular user, including anti-malware, anti-phishing, inbound and outbound anti-spam, as well as Safe Attachments and Safe Links policies in case these are licensed for your tenant. In addition, the script can check for threat policies that have inclusion and/or exclusion settings that may be redundant or confusing and lead to missed coverage of users or coverage by an unexpected threat policy.
+This script checks which Microsoft Defender for Office 365 and Exchange Online Protection threat policies cover a particular user, including anti-malware, anti-phishing, inbound and outbound anti-spam, as well as Safe Attachments and Safe Links policies in case these are licensed for your tenant. In addition, the script can check for threat policies that have inclusion and/or exclusion settings that may be redundant or confusing and lead to missed coverage of users or coverage by an unexpected threat policy. It also includes an option to show all the actions and settings of the policies that apply to a user.
 
 .PARAMETER CsvFilePath
     Allows you to specify a CSV file with a list of email addresses to check.
@@ -535,17 +535,17 @@ process {
                 Write-Host "Error checking Graph connection:`n$_" -ForegroundColor Red
                 Write-Host "Verify that you have Microsoft.Graph.Users and Microsoft.Graph.Groups modules installed and loaded" -ForegroundColor Yellow
                 Write-Host "You could use:" -ForegroundColor Yellow
-                Write-Host "Connect-MgGraph -Scopes 'Group.Read.All','User.Read.All'" -ForegroundColor Yellow
+                Write-Host "`tConnect-MgGraph -Scopes 'Group.Read.All','User.Read.All' -TenantId $($exoConnection.TenantId)" -ForegroundColor Yellow
                 exit
             }
             if ($null -eq $graphConnection) {
                 Write-Host "Not connected to Graph" -ForegroundColor Red
                 Write-Host "Verify that you have Microsoft.Graph.Users and Microsoft.Graph.Groups modules installed and loaded" -ForegroundColor Yellow
                 Write-Host "You could use:" -ForegroundColor Yellow
-                Write-Host "Connect-MgGraph -Scopes 'Group.Read.All','User.Read.All'" -ForegroundColor Yellow
+                Write-Host "`tConnect-MgGraph -Scopes 'Group.Read.All','User.Read.All' -TenantId $($exoConnection.TenantId)" -ForegroundColor Yellow
                 exit
             } elseif ($graphConnection.count -eq 1) {
-                $expectedScopes = "GroupMember.Read.All", 'User.Read.All'
+                $expectedScopes = "Group.Read.All", 'User.Read.All'
                 if (Test-GraphContext -Scopes $graphConnection.Scopes -ExpectedScopes $expectedScopes) {
                     Write-Host "Connected to Graph"
                     Write-Host "Session details"
@@ -555,7 +555,7 @@ process {
                     Write-Host "We cannot continue without Graph Powershell session without Expected Scopes" -ForegroundColor Red
                     Write-Host "Verify that you have Microsoft.Graph.Users and Microsoft.Graph.Groups modules installed and loaded" -ForegroundColor Yellow
                     Write-Host "You could use:" -ForegroundColor Yellow
-                    Write-Host "Connect-MgGraph -Scopes 'Group.Read.All','User.Read.All'" -ForegroundColor Yellow
+                    Write-Host "`tConnect-MgGraph -Scopes 'Group.Read.All','User.Read.All' -TenantId $($exoConnection.TenantId)" -ForegroundColor Yellow
                     exit
                 }
             } else {
@@ -572,17 +572,17 @@ process {
     if ($PSCmdlet.ParameterSetName -eq "AppliedTenant") {
         # Define the cmdlets to retrieve policies from and their corresponding policy types
         $cmdlets = @{
-            "Get-HostedContentFilterRule"                                               = "Anti-spam Policy"
-            "Get-HostedOutboundSpamFilterRule"                                          = "Outbound Spam Policy"
-            "Get-MalwareFilterRule"                                                     = "Malware Policy"
-            "Get-AntiPhishRule"                                                         = "Anti-phishing Policy"
-            "Get-SafeLinksRule"                                                         = "Safe Links Policy"
-            "Get-SafeAttachmentRule"                                                    = "Safe Attachment Policy"
-            "Get-ATPBuiltInProtectionRule"                                              = "Built-in protection preset security Policy"
-            { Get-EOPProtectionPolicyRule -Identity 'Strict Preset Security Policy' }   = "EOP"
-            { Get-EOPProtectionPolicyRule -Identity 'Standard Preset Security Policy' } = "EOP"
-            { Get-ATPProtectionPolicyRule -Identity 'Strict Preset Security Policy' }   = "MDO (Safe Links / Safe Attachments)"
-            { Get-ATPProtectionPolicyRule -Identity 'Standard Preset Security Policy' } = "MDO (Safe Links / Safe Attachments)"
+            "Get-HostedContentFilterRule"                                                                        = "Anti-spam Policy"
+            "Get-HostedOutboundSpamFilterRule"                                                                   = "Outbound Spam Policy"
+            "Get-MalwareFilterRule"                                                                              = "Malware Policy"
+            "Get-AntiPhishRule"                                                                                  = "Anti-phishing Policy"
+            "Get-SafeLinksRule"                                                                                  = "Safe Links Policy"
+            "Get-SafeAttachmentRule"                                                                             = "Safe Attachment Policy"
+            "Get-ATPBuiltInProtectionRule"                                                                       = "Built-in protection preset security Policy"
+            { Get-EOPProtectionPolicyRule | Where-Object { $_.Identity -eq 'Strict Preset Security Policy' } }   = "EOP"
+            { Get-EOPProtectionPolicyRule | Where-Object { $_.Identity -eq 'Standard Preset Security Policy' } } = "EOP"
+            { Get-ATPProtectionPolicyRule | Where-Object { $_.Identity -eq 'Strict Preset Security Policy' } }   = "MDO (Safe Links / Safe Attachments)"
+            { Get-ATPProtectionPolicyRule | Where-Object { $_.Identity -eq 'Standard Preset Security Policy' } } = "MDO (Safe Links / Safe Attachments)"
         }
 
         $foundIssues = $false
@@ -699,8 +699,8 @@ process {
             $antiPhishRules = Get-AntiPhishRule | Where-Object { $_.State -ne 'Disabled' }
             $hostedContentFilterRules = Get-HostedContentFilterRule | Where-Object { $_.State -ne 'Disabled' }
             $hostedOutboundSpamFilterRules = Get-HostedOutboundSpamFilterRule | Where-Object { $_.State -ne 'Disabled' }
-            $eopStrictPresetRules = Get-EOPProtectionPolicyRule -Identity 'Strict Preset Security Policy' | Where-Object { $_.State -ne 'Disabled' }
-            $eopStandardPresetRules = Get-EOPProtectionPolicyRule -Identity 'Standard Preset Security Policy' | Where-Object { $_.State -ne 'Disabled' }
+            $eopStrictPresetRules = Get-EOPProtectionPolicyRule | Where-Object { $_.Identity -eq 'Strict Preset Security Policy' } | Where-Object { $_.State -ne 'Disabled' }
+            $eopStandardPresetRules = Get-EOPProtectionPolicyRule | Where-Object { $_.Identity -eq 'Standard Preset Security Policy' } | Where-Object { $_.State -ne 'Disabled' }
         }
 
         $safeAttachmentRules = $null
@@ -712,8 +712,8 @@ process {
             # Get the custom and preset rules for Safe Attachments/Links
             $safeAttachmentRules = Get-SafeAttachmentRule | Where-Object { $_.State -ne 'Disabled' }
             $safeLinksRules = Get-SafeLinksRule | Where-Object { $_.State -ne 'Disabled' }
-            $mdoStrictPresetRules = Get-ATPProtectionPolicyRule -Identity 'Strict Preset Security Policy' | Where-Object { $_.State -ne 'Disabled' }
-            $mdoStandardPresetRules = Get-ATPProtectionPolicyRule -Identity 'Standard Preset Security Policy' | Where-Object { $_.State -ne 'Disabled' }
+            $mdoStrictPresetRules = Get-ATPProtectionPolicyRule | Where-Object { $_.Identity -eq 'Strict Preset Security Policy' } | Where-Object { $_.State -ne 'Disabled' }
+            $mdoStandardPresetRules = Get-ATPProtectionPolicyRule | Where-Object { $_.Identity -eq 'Standard Preset Security Policy' } | Where-Object { $_.State -ne 'Disabled' }
         }
 
         foreach ($email in $validEmailAddress) {
@@ -758,55 +758,59 @@ process {
                         $malwareMatchedRule = $malwareFilterPolicy = $null
                         if ($malwareFilterRules) {
                             $malwareMatchedRule = Test-Rules -Rules $malwareFilterRules -Email $stEmailAddress
-                            if ($null -eq $malwareMatchedRule) {
-                                Write-Host "`nMalware:`n`tDefault policy"  -ForegroundColor Yellow
-                            } else {
-                                $malwareFilterPolicy = Get-MalwareFilterPolicy $malwareMatchedRule.Name
-                                Write-Host "`nMalware:`n`tName: $($malwareMatchedRule.Name)`n`tPriority: $($malwareMatchedRule.Priority)"  -ForegroundColor Yellow
-                                if ($malwareFilterPolicy -and $ShowDetailedPolicies) {
-                                    Show-DetailedPolicy -Policy $malwareFilterPolicy
-                                }
+                        }
+                        if ($null -eq $malwareMatchedRule) {
+                            Write-Host "`nMalware:`n`tDefault policy"  -ForegroundColor Yellow
+                        } else {
+                            $malwareFilterPolicy = Get-MalwareFilterPolicy $malwareMatchedRule.Name
+                            Write-Host "`nMalware:`n`tName: $($malwareMatchedRule.Name)`n`tPriority: $($malwareMatchedRule.Priority)"  -ForegroundColor Yellow
+                            if ($malwareFilterPolicy -and $ShowDetailedPolicies) {
+                                Show-DetailedPolicy -Policy $malwareFilterPolicy
                             }
                         }
+
                         $antiPhishMatchedRule = $antiPhishPolicy = $null
                         if ($antiPhishRules) {
                             $antiPhishMatchedRule = Test-Rules -Rules $antiPhishRules -Email $stEmailAddress
-                            if ($null -eq $antiPhishMatchedRule) {
-                                Write-Host "`nAnti-phish:`n`tDefault policy"  -ForegroundColor Yellow
-                            } else {
-                                $antiPhishPolicy = Get-AntiPhishPolicy $antiPhishMatchedRule.Name
-                                Write-Host "`nAnti-phish:`n`tName: $($antiPhishMatchedRule.Name)`n`tPriority: $($antiPhishMatchedRule.Priority)"  -ForegroundColor Yellow
-                                if ($antiPhishPolicy -and $ShowDetailedPolicies) {
-                                    Show-DetailedPolicy -Policy $antiPhishPolicy
-                                }
+                        }
+                        if ($null -eq $antiPhishMatchedRule) {
+                            Write-Host "`nAnti-phish:`n`tDefault policy"  -ForegroundColor Yellow
+                        } else {
+                            $antiPhishPolicy = Get-AntiPhishPolicy $antiPhishMatchedRule.Name
+                            Write-Host "`nAnti-phish:`n`tName: $($antiPhishMatchedRule.Name)`n`tPriority: $($antiPhishMatchedRule.Priority)"  -ForegroundColor Yellow
+                            if ($antiPhishPolicy -and $ShowDetailedPolicies) {
+                                Show-DetailedPolicy -Policy $antiPhishPolicy
                             }
                         }
+
                         $spamMatchedRule = $hostedContentFilterPolicy = $null
                         if ($hostedContentFilterRules) {
                             $spamMatchedRule = Test-Rules -Rules $hostedContentFilterRules -Email $stEmailAddress
-                            if ($null -eq $spamMatchedRule) {
-                                Write-Host "`nAnti-spam::`n`tDefault policy"  -ForegroundColor Yellow
-                            } else {
-                                $hostedContentFilterPolicy = Get-HostedContentFilterPolicy $spamMatchedRule.Name
-                                Write-Host "`nAnti-spam:`n`tName: $($spamMatchedRule.Name)`n`tPriority: $($spamMatchedRule.Priority)"  -ForegroundColor Yellow
-                                if ($hostedContentFilterPolicy -and $ShowDetailedPolicies) {
-                                    Show-DetailedPolicy -Policy $hostedContentFilterPolicy
-                                }
+                        }
+                        if ($null -eq $spamMatchedRule) {
+                            Write-Host "`nAnti-spam::`n`tDefault policy"  -ForegroundColor Yellow
+                        } else {
+                            $hostedContentFilterPolicy = Get-HostedContentFilterPolicy $spamMatchedRule.Name
+                            Write-Host "`nAnti-spam:`n`tName: $($spamMatchedRule.Name)`n`tPriority: $($spamMatchedRule.Priority)"  -ForegroundColor Yellow
+                            if ($hostedContentFilterPolicy -and $ShowDetailedPolicies) {
+                                Show-DetailedPolicy -Policy $hostedContentFilterPolicy
                             }
                         }
+
                         $outboundSpamMatchedRule = $hostedOutboundSpamFilterPolicy = $null
                         if ($hostedOutboundSpamFilterRules) {
                             $outboundSpamMatchedRule = Test-Rules -Rules $hostedOutboundSpamFilterRules -email $stEmailAddress -Outbound
-                            if ($null -eq $outboundSpamMatchedRule) {
-                                Write-Host "`nOutbound Spam:`n`tDefault policy"  -ForegroundColor Yellow
-                            } else {
-                                $hostedOutboundSpamFilterPolicy = Get-HostedOutboundSpamFilterPolicy $outboundSpamMatchedRule.Name
-                                Write-Host "`nOutbound Spam:`n`tName: $($outboundSpamMatchedRule.Name)`n`tPriority: $($outboundSpamMatchedRule.Priority)"  -ForegroundColor Yellow
-                                if ($hostedOutboundSpamFilterPolicy -and $ShowDetailedPolicies) {
-                                    Show-DetailedPolicy -Policy $hostedOutboundSpamFilterPolicy
-                                }
+                        }
+                        if ($null -eq $outboundSpamMatchedRule) {
+                            Write-Host "`nOutbound Spam:`n`tDefault policy"  -ForegroundColor Yellow
+                        } else {
+                            $hostedOutboundSpamFilterPolicy = Get-HostedOutboundSpamFilterPolicy $outboundSpamMatchedRule.Name
+                            Write-Host "`nOutbound Spam:`n`tName: $($outboundSpamMatchedRule.Name)`n`tPriority: $($outboundSpamMatchedRule.Priority)"  -ForegroundColor Yellow
+                            if ($hostedOutboundSpamFilterPolicy -and $ShowDetailedPolicies) {
+                                Show-DetailedPolicy -Policy $hostedOutboundSpamFilterPolicy
                             }
                         }
+
                         $allPolicyDetails = $userDetails + "`n" + $allPolicyDetails
                         Write-Host $allPolicyDetails -ForegroundColor Yellow
                     }

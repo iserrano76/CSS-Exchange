@@ -23,6 +23,7 @@ Describe "Testing Health Checker by Mock Data Imports" {
             TestObjectMatch "Name" $env:COMPUTERNAME
             TestObjectMatch "Version" "Exchange 2019 CU11"
             TestObjectMatch "Build Number" "15.02.0986.005"
+            TestObjectMatch "End Of Life" $true -WriteType "Yellow" # This is going to change to red once we get 178 out
             TestObjectMatch "Server Role" "Mailbox"
             TestObjectMatch "DAG Name" "Standalone Server"
             TestObjectMatch "AD Site" "Default-First-Site-Name"
@@ -34,7 +35,7 @@ Describe "Testing Health Checker by Mock Data Imports" {
             TestObjectMatch "Monitoring Overrides Detected" $false
             TestObjectMatch "Out of Date" $true -WriteType "Red"
             TestObjectMatch "Exchange Server Membership" "Passed"
-            $Script:ActiveGrouping.Count | Should -Be 16
+            $Script:ActiveGrouping.Count | Should -Be 17
         }
 
         It "Display Results - Organization Information" {
@@ -144,7 +145,7 @@ Describe "Testing Health Checker by Mock Data Imports" {
             TestObjectMatch "AES256-CBC Protected Content Support" "Not Supported Build" -WriteType "Red"
             TestObjectMatch "SerializedDataSigning Enabled" "Unsupported Version" -WriteType "Red"
 
-            $Script:ActiveGrouping.Count | Should -Be 84
+            $Script:ActiveGrouping.Count | Should -Be 85
         }
 
         It "Display Results - Security Vulnerability" {

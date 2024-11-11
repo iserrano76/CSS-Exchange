@@ -102,7 +102,7 @@ function CreateExternalMasterIDMap {
     foreach ($Key in $SharedFolders.Keys) {
         Write-Host -ForegroundColor Green "$Key : $($SharedFolders[$Key])"
     }
-    # ToDo: Need to check for multiple ExternalMasterIDs pointing to the same FolderName
+    # ToDo: Need to check for multiple ExternalSharingMasterId pointing to the same FolderName
     Write-Verbose "Created the following Mapping :"
     Write-Verbose $SharedFolders
 }
@@ -131,8 +131,6 @@ function BuildCSV {
 
     Write-Host "Starting to Process Calendar Logs..."
     $GCDOResults = @()
-    $IsFromSharedCalendar = @()
-    $LogType = @()
     $script:MailboxList = @{}
     Write-Host "Creating Map of Mailboxes to CNs..."
     CreateExternalMasterIDMap
@@ -145,9 +143,6 @@ function BuildCSV {
         $Index++
         $ItemType = $CalendarItemTypes.($CalLog.ItemClass)
 
-        $ShortClientName = CreateShortClientName($CalLog.LogClientInfoString)
-        $LogType = SetLogType($CalLog)
-
         # CleanNotFounds
         $PropsToClean = "FreeBusyStatus", "ClientIntent", "AppointmentSequenceNumber", "AppointmentLastSequenceNumber", "RecurrencePattern", "AppointmentAuxiliaryFlags", "EventEmailReminderTimer", "IsSeriesCancelled", "AppointmentCounterProposal", "MeetingRequestType", "SendMeetingMessagesDiagnostics"
         foreach ($Prop in $PropsToClean) {
@@ -157,19 +152,17 @@ function BuildCSV {
             }
         }
 
-        $IsFromSharedCalendar = ($null -ne $CalLog.externalSharingMasterId -and $CalLog.externalSharingMasterId -ne "NotFound")
-
         # Record one row
         $GCDOResults += [PSCustomObject]@{
             'LogRow'                         = $Index
             'LogTimestamp'                   = ConvertDateTime($CalLog.LogTimestamp)
-            'LogType'                        = $LogType
+            'LogRowType'                     = $CalLog.LogRowType.ToString()
             'SubjectProperty'                = $CalLog.SubjectProperty
-            'Client'                         = $ShortClientName
+            'Client'                         = $CalLog.ShortClientInfoString
             'LogClientInfoString'            = $CalLog.LogClientInfoString
             'TriggerAction'                  = $CalLog.CalendarLogTriggerAction
             'ItemClass'                      = $ItemType
-            'Seq:Exp:ItemVersion'            = $CalLog.AppointmentSequenceNumber.ToString() + ":" + $CalLog.AppointmentLastSequenceNumber.ToString() + ":" + $CalLog.ItemVersion.ToString()
+            'Seq:Exp:ItemVersion'            = CompressVersionInfo($CalLog)
             'Organizer'                      = $CalLog.From.FriendlyDisplayName
             'From'                           = GetBestFromAddress($CalLog.From)
             'FreeBusy'                       = $CalLog.FreeBusyStatus.ToString()
@@ -178,7 +171,6 @@ function BuildCSV {
             'LogFolder'                      = $CalLog.ParentDisplayName
             'OriginalLogFolder'              = $CalLog.OriginalParentDisplayName
             'SharedFolderName'               = MapSharedFolder($CalLog.ExternalSharingMasterId)
-            'IsFromSharedCalendar'           = $IsFromSharedCalendar
             'ReceivedBy'                     = $CalLog.ReceivedBy.SmtpEmailAddress
             'ReceivedRepresenting'           = $CalLog.ReceivedRepresenting.SmtpEmailAddress
             'MeetingRequestType'             = $CalLog.MeetingRequestType.ToString()
@@ -192,7 +184,7 @@ function BuildCSV {
             'RecurrencePattern'              = $CalLog.RecurrencePattern
             'AppointmentAuxiliaryFlags'      = $CalLog.AppointmentAuxiliaryFlags.ToString()
             'DisplayAttendeesAll'            = $CalLog.DisplayAttendeesAll
-            'AttendeeCount'                  = ($CalLog.DisplayAttendeesAll -split ';').Count
+            'AttendeeCount'                  = GetAttendeeCount($CalLog.DisplayAttendeesAll)
             'AppointmentState'               = $CalLog.AppointmentState.ToString()
             'ResponseType'                   = $CalLog.ResponseType.ToString()
             'ClientIntent'                   = $CalLog.ClientIntent.ToString()
@@ -222,4 +214,39 @@ function ConvertDateTime {
         return ""
     }
     return [DateTime]$DateTime
+}
+
+function GetAttendeeCount {
+    param(
+        [string] $AttendeeCollection
+    )
+    if ($From.SmtpAddress -ne "NotFound") {
+        return ($AttendeeCollection -split ';').Count
+    } else {
+        return "-"
+    }
+}
+
+function CompressVersionInfo {
+    param(
+        $CalLog
+    )
+    [string] $CompressedString = ""
+    if ($CalLog.AppointmentSequenceNumber -eq "NotFound" -or [string]::IsNullOrEmpty($CalLog.AppointmentSequenceNumber)) {
+        $CompressedString = "-:"
+    } else {
+        $CompressedString = $CalLog.AppointmentSequenceNumber.ToString() + ":"
+    }
+    if ($CalLog.AppointmentLastSequenceNumber -eq "NotFound" -or [string]::IsNullOrEmpty($CalLog.AppointmentLastSequenceNumber)) {
+        $CompressedString += "-:"
+    } else {
+        $CompressedString += $CalLog.AppointmentLastSequenceNumber.ToString() + ":"
+    }
+    if ($CalLog.ItemVersion -eq "NotFound" -or [string]::IsNullOrEmpty($CalLog.ItemVersion)) {
+        $CompressedString += "-"
+    } else {
+        $CompressedString += $CalLog.ItemVersion.ToString()
+    }
+
+    return $CompressedString
 }

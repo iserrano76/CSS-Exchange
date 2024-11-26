@@ -444,7 +444,7 @@ process {
 
         #Validate Graph is connected
         $graphConnection = $null
-        $graphConnection = Connect-GraphAdvanced -Scopes Group.Read.All, User.Read.All -Modules Microsoft.Graph.Users, Microsoft.Graph.Groups
+        $graphConnection = Connect-GraphAdvanced -Scopes Group.Read.All, User.Read.All -Modules Microsoft.Graph.Users, Microsoft.Graph.Groups -minModuleVersion 2.24.0.0
         if ($null -eq $graphConnection) {
             Write-Host "Not connected to Graph" -ForegroundColor Red
             Write-Host "You could use:" -ForegroundColor Yellow

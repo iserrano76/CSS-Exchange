@@ -1,6 +1,27 @@
 ﻿# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+<#
+.SYNOPSIS
+This script defines a function `Connect-GraphAdvanced` that establishes a connection to Microsoft Graph.
+It ensures that the required modules are installed and loaded.
+The function accepts a list of scopes and modules, with optional parameters for tenant ID and connection details display.
+If the required modules are not found, the script attempts to install them.
+The function returns the connection information or null if the connection fails.
+
+.PARAMETER Scopes
+ Mandatory array of strings specifying the scopes for the connection.
+.PARAMETER Modules
+ Mandatory array of strings specifying the modules required for the connection.
+.PARAMETER TenantId
+ Optional array of strings specifying the tenant ID(s) for the connection.
+.PARAMETER DoNotShowConnectionDetails
+ Optional switch to hide connection details.
+
+.OUTPUTS
+Microsoft.Graph.PowerShell.Authentication.AuthContext. The connection information object for the Microsoft Graph session.
+#>
+
 . $PSScriptRoot\..\ModuleHandle.ps1
 
 function Connect-GraphAdvanced {
@@ -132,5 +153,10 @@ function Show-GraphContext {
     Write-Host "`nConnected to Graph"
     Write-Host "Session details"
     Write-Host "Tenant Id: $($Context.TenantId)"
-    Write-Host "Account: $($Context.Account)"
+    if ($graphConnection.AuthType) {
+        Write-Host "AuthType: $($graphConnection.AuthType)"
+    }
+    if ($Context.Account) {
+        Write-Host "Account: $($Context.Account)"
+    }
 }

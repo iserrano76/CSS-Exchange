@@ -149,7 +149,7 @@ begin {
             return $null
         }
         $recipient = $null
-        $recipient = Get-Recipient $EmailAddress -ErrorAction SilentlyContinue
+        $recipient = Get-EXORecipient $EmailAddress -ErrorAction SilentlyContinue
         if ($null -eq $recipient) {
             Write-Host "$EmailAddress is not a recipient in this tenant" -ForegroundColor Red
             return $null
@@ -454,7 +454,8 @@ process {
 
         #Validate Graph is connected
         $exoConnection = $null
-        $exoConnection = Connect-EXOAdvanced
+        $exoConnection = Connect-EXOAdvanced -AllowMultipleSessions
+
         if ($null -eq $exoConnection) {
             Write-Host "Not connected to EXO" -ForegroundColor Red
             Write-Host "You need a connection To Exchange Online, you can use:" -ForegroundColor Yellow
@@ -462,6 +463,43 @@ process {
             Write-Host "Exchange Online Powershell Module is required" -ForegroundColor Red
             exit
         }
+        $exoConnection2 = Connect-EXOAdvanced -AllowMultipleSessions -Prefix Con2
+        if ($null -eq $exoConnection2) {
+            Write-Host "Not connected to EXO" -ForegroundColor Red
+            Write-Host "You need a connection To Exchange Online, you can use:" -ForegroundColor Yellow
+            Write-Host "Connect-ExchangeOnline" -ForegroundColor Yellow
+            Write-Host "Exchange Online Powershell Module is required" -ForegroundColor Red
+            exit
+        }
+
+        $exoConnection3 = Connect-EXOAdvanced -AllowMultipleSessions
+        if ($null -eq $exoConnection3) {
+            Write-Host "Not connected to EXO" -ForegroundColor Red
+            Write-Host "You need a connection To Exchange Online, you can use:" -ForegroundColor Yellow
+            Write-Host "Connect-ExchangeOnline" -ForegroundColor Yellow
+            Write-Host "Exchange Online Powershell Module is required" -ForegroundColor Red
+            exit
+        }
+
+
+        $exoConnection2 = Connect-EXOAdvanced -AllowMultipleSessions -Prefix Con2
+        if ($null -eq $exoConnection2) {
+            Write-Host "Not connected to EXO" -ForegroundColor Red
+            Write-Host "You need a connection To Exchange Online, you can use:" -ForegroundColor Yellow
+            Write-Host "Connect-ExchangeOnline" -ForegroundColor Yellow
+            Write-Host "Exchange Online Powershell Module is required" -ForegroundColor Red
+            exit
+        }
+
+        $exoConnection2 = Connect-EXOAdvanced -AllowMultipleSessions -Prefix Con3 -minModuleVersion 3.5.0
+        if ($null -eq $exoConnection2) {
+            Write-Host "Not connected to EXO" -ForegroundColor Red
+            Write-Host "You need a connection To Exchange Online, you can use:" -ForegroundColor Yellow
+            Write-Host "Connect-ExchangeOnline" -ForegroundColor Yellow
+            Write-Host "Exchange Online Powershell Module is required" -ForegroundColor Red
+            exit
+        }
+
 
         if (($graphConnection.TenantId) -ne ($exoConnection.TenantId) ) {
             Write-Host "`nThe Tenant Id from Graph and EXO are different. Please use the same tenant" -ForegroundColor Red
